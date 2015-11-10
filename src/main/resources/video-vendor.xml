@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:oxm="http://www.springframework.org/schema/oxm"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:int-http="http://www.springframework.org/schema/integration/http"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+              http://www.springframework.org/schema/beans
+              http://www.springframework.org/schema/beans/spring-beans.xsd
+              http://www.springframework.org/schema/util
+              http://www.springframework.org/schema/util/spring-util.xsd
+              http://www.springframework.org/schema/oxm
+              http://www.springframework.org/schema/oxm/spring-oxm.xsd
+              http://www.springframework.org/schema/integration
+              http://www.springframework.org/schema/integration/spring-integration.xsd
+              http://www.springframework.org/schema/integration/http
+              http://www.springframework.org/schema/integration/http/spring-integration-http.xsd">
+
+
+    <util:list id="messageConverters">
+        <ref bean="stringHttpMessageConverter"/>
+        <ref bean="marshallingHttpMessageConverter"/>
+    </util:list>
+
+    <bean id="stringHttpMessageConverter" class="org.springframework.http.converter.StringHttpMessageConverter"/>
+
+    <bean id="marshallingHttpMessageConverter"
+          class="org.springframework.http.converter.xml.MarshallingHttpMessageConverter">
+        <property name="marshaller" ref="marshaller"/>
+        <property name="unmarshaller" ref="marshaller"/>
+    </bean>
+
+    <oxm:jaxb2-marshaller id="marshaller">
+        <oxm:class-to-be-bound name="demo.VideoProfile"/>
+        <oxm:class-to-be-bound name="demo.Video"/>
+    </oxm:jaxb2-marshaller>
+
+    <int:channel id="inputChannel"/>
+
+    <int:header-enricher input-channel="inputChannel" output-channel="httpChannel">
+        <int:header name="Content-Type" value="application/xml"/>
+        <int:header name="Accept" value="application/xml"/>
+    </int:header-enricher>
+
+    <int:channel id="httpChannel"/>
+
+    <int:gateway service-interface="demo.VideoGenerator"
+                 default-request-channel="inputChannel" default-reply-channel="outputChannel">
+    </int:gateway>
+
+
+    <int-http:outbound-gateway id="videoVendorEndpoint"
+                               request-channel="httpChannel"
+                               url="http://localhost:12306/api/video"
+                               http-method="POST"
+                               message-converters="messageConverters"
+                               expected-response-type="demo.Video"
+                               charset="UTF-8"
+                               reply-timeout="5"
+                               reply-channel="outputChannel">
+    </int-http:outbound-gateway>
+
+    <int:channel id="outputChannel"/>
+</beans>
